@@ -4,12 +4,9 @@ import retrofit2.Call
 import retrofit2.http.Body
 import retrofit2.http.POST
 
-data class Credentials(
-    val id: String,
-    val pw: String
-)
-
 interface Api {
-    @POST("/auth")
-    fun authenticate(@Body credentials: Credentials): Call<SejongAuthResponse>
+    @POST("/auth?method=MoodlerSession")
+    fun login(
+        @Body body: Map<String, String>
+    ): Call<SejongAuthResponse>
 }
