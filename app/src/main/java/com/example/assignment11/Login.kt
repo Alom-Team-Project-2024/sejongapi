@@ -29,20 +29,14 @@ class LoginActivity : AppCompatActivity() {
             )
 
             // 로그인 요청
-            RetrofitClient.instance.login(body).enqueue(object : Callback<SejongAuthResponse> {
+            RetrofitClient.sejongApi.login(body).enqueue(object : Callback<SejongAuthResponse> {
                 override fun onResponse(call: Call<SejongAuthResponse>, response: Response<SejongAuthResponse>) {
                     if (response.isSuccessful && response.body() != null) {
                         val auth = response.body()?.result
                         if (auth?.isAuth == "true") {
                             val userData = auth.body
-                            if (userData != null) {
-                                showSuccess("로그인 성공!")
-                                // 변환 함수 호출
-                                val userDTO = convertToAuthUserDTO(userData)
-                                requestJwtToken(userDTO)
-                            } else {
-                                showError("사용자 데이터를 가져올 수 없습니다.")
-                            }
+                            showSuccess("로그인 성공!")
+                            requestJwtToken(userData)
                         } else {
                             showError("로그인 실패: 인증되지 않았습니다.")
                         }
@@ -58,9 +52,29 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestJwtToken(userDTO: AuthUserDTO) {
+    private fun requestJwtToken(userData: SejongAuthResponseResultBodyJson) {
+        // 한국어 상태 값을 영어로 매핑
+        val statusMap = mapOf(
+            "재학" to RegistrationStatus.ATTENDING,
+            "휴학" to RegistrationStatus.TAKEOFFSCHOOL,
+            "졸업" to RegistrationStatus.GRADUATE
+        )
+
+        // 상태 값을 매핑
+        val registrationStatus = statusMap[userData.status]
+            ?: throw IllegalArgumentException("Unknown registration status: ${userData.status}")
+
+        // AuthUserDTO 생성
+        val userDTO = AuthUserDTO(
+            username = binding.etId.text.toString(),
+            name = userData.name,
+            major = userData.major,
+            studentGrade = userData.grade,
+            registrationStatus = registrationStatus
+        )
+
         // JWT 요청
-        RetrofitClient.instance.requestJwtToken(userDTO).enqueue(object : Callback<JwtResponse> {
+        RetrofitClient.userApi.requestJwtToken(userDTO).enqueue(object : Callback<JwtResponse> {
             override fun onResponse(call: Call<JwtResponse>, response: Response<JwtResponse>) {
                 if (response.isSuccessful && response.body() != null) {
                     val jwtToken = response.body()?.token
@@ -85,7 +99,7 @@ class LoginActivity : AppCompatActivity() {
 
     private fun sendUserInfoToServer(userDTO: AuthUserDTO) {
         // 사용자 정보를 서버에 전송
-        RetrofitClient.instance.sendUserInfoToServer(userDTO).enqueue(object : Callback<ServerResponse> {
+        RetrofitClient.userApi.sendUserInfoToServer(userDTO).enqueue(object : Callback<ServerResponse> {
             override fun onResponse(call: Call<ServerResponse>, response: Response<ServerResponse>) {
                 if (response.isSuccessful && response.body() != null) {
                     val serverResponse = response.body()
@@ -104,28 +118,6 @@ class LoginActivity : AppCompatActivity() {
                 showError("사용자 정보 전송 실패: 네트워크 오류가 발생했습니다.")
             }
         })
-    }
-
-    private fun convertToAuthUserDTO(userData: SejongAuthResponseResultBodyJson): AuthUserDTO {
-        // 한국어 상태 값을 영어로 매핑
-        val statusMap = mapOf(
-            "재학" to RegistrationStatus.ATTENDING,
-            "휴학" to RegistrationStatus.TAKEOFFSCHOOL,
-            "졸업" to RegistrationStatus.GRADUATE
-        )
-
-        // 상태 값을 매핑
-        val registrationStatus = statusMap[userData.status]
-            ?: throw IllegalArgumentException("Unknown registration status: ${userData.status}")
-
-        // AuthUserDTO 생성
-        return AuthUserDTO(
-            username = binding.etId.text.toString(),
-            name = userData.name,
-            major = userData.major,
-            studentGrade = userData.grade,
-            registrationStatus = registrationStatus
-        )
     }
 
     private fun saveJwtToken(token: String) {
@@ -150,4 +142,3 @@ class LoginActivity : AppCompatActivity() {
         Toast.makeText(this@LoginActivity, message, Toast.LENGTH_SHORT).show()
     }
 }
-
