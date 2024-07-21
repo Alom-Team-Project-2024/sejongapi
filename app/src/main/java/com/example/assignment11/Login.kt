@@ -1,56 +1,153 @@
 package com.example.assignment11
 
 import android.content.Intent
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
-import retrofit2.Callback
+import androidx.appcompat.app.AppCompatActivity
 import com.example.assignment11.databinding.ActivityLoginBinding
+import com.example.assignment11.model.AuthUserDTO
 import retrofit2.Call
+import retrofit2.Callback
 import retrofit2.Response
 
-class Login : AppCompatActivity() {
+class LoginActivity : AppCompatActivity() {
+
     private lateinit var binding: ActivityLoginBinding
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
-        setContentView((binding.root))
+        setContentView(binding.root)
 
         binding.btnLogin.setOnClickListener {
             val id = binding.etId.text.toString()
             val pw = binding.etPassword.text.toString()
+
             val body = mapOf(
                 "id" to id,
                 "pw" to pw
             )
-            RetrofitClient.instance.login(body).enqueue(object: Callback<SejongAuthResponse> {
-                override fun onResponse(
-                    call: Call<SejongAuthResponse>,
-                    response: Response<SejongAuthResponse>
-                ) {
-                    Log.d("MainActivity", response.toString())
+
+            // 로그인 요청
+            RetrofitClient.instance.login(body).enqueue(object : Callback<SejongAuthResponse> {
+                override fun onResponse(call: Call<SejongAuthResponse>, response: Response<SejongAuthResponse>) {
                     if (response.isSuccessful && response.body() != null) {
                         val auth = response.body()?.result
                         if (auth?.isAuth == "true") {
-                            val intent = Intent(this@Login, Chatting::class.java)
-                            Toast.makeText(this@Login, "로그인에 성공했습니다.", Toast.LENGTH_SHORT).show()
-                            startActivity(intent)
+                            val userData = auth.body
+                            if (userData != null) {
+                                showSuccess("로그인 성공!")
+                                // 변환 함수 호출
+                                val userDTO = convertToAuthUserDTO(userData)
+                                requestJwtToken(userDTO)
+                            } else {
+                                showError("사용자 데이터를 가져올 수 없습니다.")
+                            }
                         } else {
-                            Toast.makeText(this@Login, "로그인 실패", Toast.LENGTH_SHORT).show()
+                            showError("로그인 실패: 인증되지 않았습니다.")
                         }
                     } else {
-                        Toast.makeText(this@Login, "로그인 실패", Toast.LENGTH_SHORT).show()
+                        showError("로그인 실패: 서버 응답이 올바르지 않습니다.")
                     }
                 }
 
                 override fun onFailure(call: Call<SejongAuthResponse>, t: Throwable) {
-                    Toast.makeText(this@Login, "로그인 실패", Toast.LENGTH_SHORT).show()
+                    showError("로그인 실패: 네트워크 오류가 발생했습니다.")
                 }
-
             })
-
-
         }
     }
+
+    private fun requestJwtToken(userDTO: AuthUserDTO) {
+        // JWT 요청
+        RetrofitClient.instance.requestJwtToken(userDTO).enqueue(object : Callback<JwtResponse> {
+            override fun onResponse(call: Call<JwtResponse>, response: Response<JwtResponse>) {
+                if (response.isSuccessful && response.body() != null) {
+                    val jwtToken = response.body()?.token
+
+                    if (!jwtToken.isNullOrEmpty()) {
+                        saveJwtToken(jwtToken)
+                        showSuccess("JWT 발급 성공!")
+                        sendUserInfoToServer(userDTO)
+                    } else {
+                        showError("JWT 발급 실패: 토큰이 없습니다.")
+                    }
+                } else {
+                    showError("JWT 발급 실패: 서버 응답이 올바르지 않습니다.")
+                }
+            }
+
+            override fun onFailure(call: Call<JwtResponse>, t: Throwable) {
+                showError("JWT 발급 실패: 네트워크 오류가 발생했습니다.")
+            }
+        })
+    }
+
+    private fun sendUserInfoToServer(userDTO: AuthUserDTO) {
+        // 사용자 정보를 서버에 전송
+        RetrofitClient.instance.sendUserInfoToServer(userDTO).enqueue(object : Callback<ServerResponse> {
+            override fun onResponse(call: Call<ServerResponse>, response: Response<ServerResponse>) {
+                if (response.isSuccessful && response.body() != null) {
+                    val serverResponse = response.body()
+                    if (serverResponse?.success == true) {
+                        showSuccess("사용자 정보 전송 성공!")
+                        navigateToChatting()
+                    } else {
+                        showError("사용자 정보 전송 실패: ${serverResponse?.message ?: "알 수 없는 오류"}")
+                    }
+                } else {
+                    showError("사용자 정보 전송 실패: 서버 응답이 올바르지 않습니다.")
+                }
+            }
+
+            override fun onFailure(call: Call<ServerResponse>, t: Throwable) {
+                showError("사용자 정보 전송 실패: 네트워크 오류가 발생했습니다.")
+            }
+        })
+    }
+
+    private fun convertToAuthUserDTO(userData: SejongAuthResponseResultBodyJson): AuthUserDTO {
+        // 한국어 상태 값을 영어로 매핑
+        val statusMap = mapOf(
+            "재학" to RegistrationStatus.ATTENDING,
+            "휴학" to RegistrationStatus.TAKEOFFSCHOOL,
+            "졸업" to RegistrationStatus.GRADUATE
+        )
+
+        // 상태 값을 매핑
+        val registrationStatus = statusMap[userData.status]
+            ?: throw IllegalArgumentException("Unknown registration status: ${userData.status}")
+
+        // AuthUserDTO 생성
+        return AuthUserDTO(
+            username = binding.etId.text.toString(),
+            name = userData.name,
+            major = userData.major,
+            studentGrade = userData.grade,
+            registrationStatus = registrationStatus
+        )
+    }
+
+    private fun saveJwtToken(token: String) {
+        val sharedPref = getSharedPreferences("auth", MODE_PRIVATE)
+        with(sharedPref.edit()) {
+            putString("jwt_token", token)
+            apply()
+        }
+    }
+
+    private fun navigateToChatting() {
+        val intent = Intent(this@LoginActivity, Chatting::class.java)
+        startActivity(intent)
+        finish()
+    }
+
+    private fun showError(message: String) {
+        Toast.makeText(this@LoginActivity, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showSuccess(message: String) {
+        Toast.makeText(this@LoginActivity, message, Toast.LENGTH_SHORT).show()
+    }
 }
+
