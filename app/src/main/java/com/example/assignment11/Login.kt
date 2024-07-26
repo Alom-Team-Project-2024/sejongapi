@@ -76,11 +76,13 @@ class LoginActivity : AppCompatActivity() {
         // JWT 요청
         RetrofitClient.userApi.requestJwtToken(userDTO).enqueue(object : Callback<JwtResponse> {
             override fun onResponse(call: Call<JwtResponse>, response: Response<JwtResponse>) {
-                if (response.isSuccessful && response.body() != null) {
-                    val jwtToken = response.body()?.token
+                if (response.isSuccessful) {
+                    // 응답 헤더에서 JWT 추출
+                    val authHeader = response.headers().get("Authorization")
+                    val token = authHeader?.removePrefix("Bearer ")
 
-                    if (!jwtToken.isNullOrEmpty()) {
-                        saveJwtToken(jwtToken)
+                    if (!token.isNullOrEmpty()) {
+                        JwtProvider.setToken(token)
                         showSuccess("JWT 발급 성공!")
                         sendUserInfoToServer(userDTO)
                     } else {
@@ -95,6 +97,7 @@ class LoginActivity : AppCompatActivity() {
                 showError("JWT 발급 실패: 네트워크 오류가 발생했습니다.")
             }
         })
+
     }
 
     private fun sendUserInfoToServer(userDTO: AuthUserDTO) {

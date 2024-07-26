@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.INTERNET" /> <!-- 인터넷 사용 하기 위해 추가 -->
+
+    <!-- 네트워크 및 Wi-Fi 관련 권한 추가 -->
+    <uses-permission android:name="android.permission.INTERNET" /> <!-- 인터넷 사용 -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" /> <!-- Wi-Fi 상태 접근 -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" /> <!-- Wi-Fi 상태 변경 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- 네트워크 상태 접근 -->
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -11,7 +17,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Assignment11"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="31">
+        <!-- networkSecurityConfig 네트워크 코드 추가 -->
+
         <activity
             android:name=".LoginActivity"
             android:exported="true">
@@ -20,15 +29,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- MainActivity로의 intent-filter 추가 -->
+
+        <!-- Chatting 액티비티의 intent-filter 수정 -->
         <activity
             android:name=".Chatting"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-    </application>
 
+    </application>
 </manifest>
