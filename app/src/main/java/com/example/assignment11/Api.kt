@@ -13,8 +13,8 @@ interface SejongApi {
 
 interface UserApi {
     @POST("/users/login") // 동일한 엔드포인트로 사용자 정보 전송 및 JWT 토큰 요청
-    fun sendUserInfoToServer(@Body userDTO: AuthUserDTO): Call<ServerResponse>
-
-    @POST("/users/login") // 동일한 엔드포인트로 JWT 토큰 요청
     fun requestJwtToken(@Body userDTO: AuthUserDTO): Call<JwtResponse>
+
+    @POST("/users/login") // 동일한 엔드포인트로 정보 전송
+    fun sendUserInfoToServer(@Body userDTO: AuthUserDTO): Call<ServerResponse>
 }

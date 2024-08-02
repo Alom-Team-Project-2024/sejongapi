@@ -7,7 +7,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
     private const val SEJONG_BASE_URL = "https://auth.imsejong.com"
-    private const val USER_BASE_URL = "http://10.0.2.2:8080"
+    private const val USER_BASE_URL = "http://15.165.213.186:8080"
 
     val sejongApi: SejongApi by lazy {
         val logging = HttpLoggingInterceptor()
@@ -42,4 +42,5 @@ object RetrofitClient {
 
         retrofit.create(UserApi::class.java)
     }
+
 }

@@ -2,6 +2,7 @@ package com.example.assignment11
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.assignment11.databinding.ActivityLoginBinding
@@ -77,16 +78,20 @@ class LoginActivity : AppCompatActivity() {
         RetrofitClient.userApi.requestJwtToken(userDTO).enqueue(object : Callback<JwtResponse> {
             override fun onResponse(call: Call<JwtResponse>, response: Response<JwtResponse>) {
                 if (response.isSuccessful) {
-                    // 응답 헤더에서 JWT 추출
                     val authHeader = response.headers().get("Authorization")
-                    val token = authHeader?.removePrefix("Bearer ")
-
-                    if (!token.isNullOrEmpty()) {
-                        JwtProvider.setToken(token)
-                        showSuccess("JWT 발급 성공!")
-                        sendUserInfoToServer(userDTO)
+                    if (authHeader != null) {
+                        val token = authHeader.removePrefix("Bearer ")
+                        Log.e("TOKEN", "JWT Token: $token")
+                        if (!token.isNullOrEmpty()) {
+                            JwtProvider.setToken(token)
+                            saveJwtToken(token)
+                            showSuccess("JWT 발급 성공!")
+                            sendUserInfoToServer(userDTO)
+                        } else {
+                            showError("JWT 발급 실패: 토큰이 없습니다.")
+                        }
                     } else {
-                        showError("JWT 발급 실패: 토큰이 없습니다.")
+                        showError("JWT 발급 실패: Authorization 헤더가 올바르지 않습니다.")
                     }
                 } else {
                     showError("JWT 발급 실패: 서버 응답이 올바르지 않습니다.")
@@ -95,8 +100,10 @@ class LoginActivity : AppCompatActivity() {
 
             override fun onFailure(call: Call<JwtResponse>, t: Throwable) {
                 showError("JWT 발급 실패: 네트워크 오류가 발생했습니다.")
+                Log.e("JWT_REQUEST", "JWT 발급 오류", t)
             }
         })
+
 
     }
 
@@ -110,7 +117,8 @@ class LoginActivity : AppCompatActivity() {
                         showSuccess("사용자 정보 전송 성공!")
                         navigateToChatting()
                     } else {
-                        showError("사용자 정보 전송 실패: ${serverResponse?.message ?: "알 수 없는 오류"}")
+                        // 성공 여부만 체크하고, 메시지 관련 처리는 생략
+                        showError("사용자 정보 전송 실패")
                     }
                 } else {
                     showError("사용자 정보 전송 실패: 서버 응답이 올바르지 않습니다.")
@@ -122,6 +130,7 @@ class LoginActivity : AppCompatActivity() {
             }
         })
     }
+
 
     private fun saveJwtToken(token: String) {
         val sharedPref = getSharedPreferences("auth", MODE_PRIVATE)
